@@ -1,31 +1,30 @@
+var fs = require('fs')
+var path = require('path')
 var esprima = require("esprima");
 var options = {tokens:true, tolerant: true, loc: true, range: true };
 var fs = require("fs");
 var mem=0;
+
 function main()
 {
 	var args = process.argv.slice(2);
 
 	if( args.length == 0 )
 	{
-		args = ["/home/vagrant/checkBoxCode/server-side/site/server.js"];
+		args = ["/home/vagrant/checkBoxCode/server-side/site/routes/create.js"];
 	}
 	var filePath = args[0];
-	
-	complexity(filePath);
-	//console.log(mem);
-	if (mem>2){
-		console.log("Long Method detected  "+ mem);
-	}
+	var equalcount=0;
+	var notqualcount=0;
 
-	
-	//  // Report
+	complexity(filePath);
+
 	for( var node in builders )
 	{
 		var builder = builders[node];
 		builder.report();
 	}
-
+	console.log(builders);
 }
 
 
@@ -37,18 +36,9 @@ function FunctionBuilder()
 {
 	this.StartLine = 0;
 	this.FunctionName = "";
-	this.mem = 0;
-	this.noLogic=0;
 	this.methodmax=0;
-	// The number of parameters for functions
-	this.ParameterCount  = 0,
-	// Number of if statements/loops + 1
-	this.SimpleCyclomaticComplexity = 0;
-	// The max depth of scopes (nested ifs, loops, etc)
-	this.MaxNestingDepth    = 0;
-	// The max number of conditions if one decision statement.
+	this.SimpleCyclomaticComplexity = 1;
 	this.MaxConditions      = 0;
-
 	this.report = function()
 	{
 		// ssss
@@ -59,19 +49,11 @@ function FunctionBuilder()
 function FileBuilder()
 {
 	this.FileName = "";
-	// Number of strings in a file.
-	this.Strings = 0;
-	// Number of imports in a file.
-	this.ImportCount = 0;
-
+	this.EqualCount=0;
+	this.NotEqualCount=0;
 	this.report = function()
 	{
-		// console.log (
-		// 	( "{0}\n" +
-		// 	  "~~~~~~~~~~~~\n"+
-		// 	  "ImportCount {1}\t" +
-		// 	  "Strings {2}\n"
-		// 	).format( this.FileName, this.ImportCount, this.Strings ));
+		//sss
 	}
 }
 
@@ -105,7 +87,7 @@ function complexity(filePath)
 	// A file level-builder:
 	var fileBuilder = new FileBuilder();
 	fileBuilder.FileName = filePath;
-	fileBuilder.ImportCount = 0;
+//	fileBuilder.ImportCount = 0;
 	builders[filePath] = fileBuilder;
 
 	// Tranverse program with a function visitor.
@@ -114,62 +96,65 @@ function complexity(filePath)
 		if (node.type === 'FunctionDeclaration') 
 		{
 			var builder = new FunctionBuilder();
-
+			builder.StartLine= node.loc.start.line;
 			builder.FunctionName = functionName(node);
-			builder.StartLine    = node.loc.end.line - node.loc.start.line;
-			if(builder.StartLine > 35){
-				console.log("Long Method" + builder.FunctionName +" "+ builder.StartLine);
+			builder.methodmax    = node.loc.end.line - node.loc.start.line;
+			if(builder.methodmax > 10){
+				console.log("Long Method" + builder.FunctionName +" "+ builder.methodmax);
+				const { exec } = require('child_process');
+				exec('touch /home/vagrant/checkBoxErrors');
+				//fs.readFileSync('/home/vagrant/checkBoxErrors', 'utf8');
+				fs.appendFileSync('/home/vagrant/checkBoxErrors',"\nLong Method" + builder.FunctionName +" "+ builder.methodmax,'utf-8');
 			}
-			
-			
-			// if(builder.)
-			
-			// if (child.type === 'IfStatement')
-			// {
-			// 	childNode=child;
-
-			// }			
-
-			// builder.noLogic
-
+			traverseWithParents(node, function (child)
+			 {
+				 
+				 if (child.type=='IfStatement' )
+				 {
+					var ifbuilder = new FunctionBuilder();
+					ifbuilder.StartLine=child.loc.start.line;
+					traverseWithParents(child,function(anode){
+						if (anode.type=='LogicalExpression' ){
+						ifbuilder.SimpleCyclomaticComplexity=ifbuilder.SimpleCyclomaticComplexity+1;
+						}
+						
+					});
+					if(builder.MaxConditions<ifbuilder.SimpleCyclomaticComplexity){
+					builder.MaxConditions=ifbuilder.SimpleCyclomaticComplexity;}
+					}
+			});
 			builders[builder.FunctionName] = builder;
+			console.log("If statements inside "+builder.FunctionName +" "+ builder.MaxConditions);
+			const { exec } = require('child_process');
+			exec('touch /home/vagrant/checkBoxErrors');
+			fs.appendFileSync('/home/vagrant/checkBoxErrors',"\nIf statements inside "+builder.FunctionName +" "+ builder.MaxConditions,'utf-8');
 		}
-	if (node.type == 'CallExpression'){
-		
-		var builder = new FunctionBuilder();
-		//console.log("first"+builder.mem);
-		traverseWithParents(node, function (child){
-			if(child.type == 'MemberExpression'){
-				builder.mem++;
-				//console.log(child.property.name);
-				//console.log(builder.mem);
-				if (mem<builder.mem){
-					mem=builder.mem;
-				
-			}
+		if(node.type =="BinaryExpression" && node.operator=="!=" ){
+			var build = new FunctionBuilder();
+			build.StartLine    = node.loc.start.line
+			//build.EqualParameterCount++;
+			fileBuilder.NotEqualCount++;
+			console.log("count of not equal  != @ line "+build.StartLine +" "+ fileBuilder.NotEqualCount);
+			const { exec } = require('child_process');
+			exec('touch /home/vagrant/checkBoxErrors');
+			fs.appendFileSync('/home/vagrant/checkBoxErrors',"\ncount of not equal  != @ line "+build.StartLine +" "+ fileBuilder.NotEqualCount,'utf-8');
 			
-			// if (mem<builder.mem){
-			// 	mem=builder.mem;
-			}
-			//console.log(builder.mem);
 			
+		}	
 		
-	});}
-
-	if (node.type == 'ExpressionStatement'){
-		var builder = new FunctionBuilder();
-		if (node.type=='MemberExpression'){
-			builder.mem++;
-			console.log(buildermem);
-		}
-		// if (mem<builder.mem){
-		// 	mem=builder.mem;
-		// }
-	}
-
-	
+		if(node.type =="BinaryExpression" && node.operator=="==" ){
+			var builder = new FunctionBuilder();
+			builder.StartLine    = node.loc.start.line
+			//builder.EqualParameterCount++;
+			fileBuilder.EqualCount++;
+			console.log("count of equal == @ line "+builder.StartLine+ " "+ fileBuilder.EqualCount);
+			const { exec } = require('child_process');
+			exec('touch /home/vagrant/checkBoxErrors');
+			fs.appendFileSync('/home/vagrant/checkBoxErrors',"\ncount of equal == @ line "+builder.StartLine+ " "+ fileBuilder.EqualCount,'utf-8');
+			
+			//equalcount++;
+		}		
 	});
-
 }
 
 
