@@ -8,7 +8,7 @@ function main()
 
 	if( args.length == 0 )
 	{
-		args = ["sample.js"];
+		args = ["/home/vagrant/checkBoxCode/server-side/site/server.js"];
 	}
 	var filePath = args[0];
 	
